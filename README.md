@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>PARKOUR</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#7ed6ff;
+overflow:hidden;
+text-align:center;
+}
+
+#title{
+font-size:110px;
+font-weight:bold;
+text-shadow:6px 6px #000;
+color:white;
+margin-top:30px;
+}
+
+button{
+font-size:28px;
+padding:20px 50px;
+margin:10px;
+border-radius:16px;
+border:4px solid #333;
+background:#ffd54f;
+cursor:pointer;
+font-weight:bold;
+box-shadow:4px 4px #000;
+}
+
+button:hover{
+filter:brightness(1.1);
+}
+
+#coins{
+position:absolute;
+right:20px;
+top:10px;
+background:white;
+padding:10px 20px;
+border-radius:12px;
+border:3px solid black;
+font-size:24px;
+}
+
+#shopBtn{
+position:absolute;
+left:10px;
+top:10px;
+font-size:26px;
+padding:16px 28px;
+}
+
+canvas{
+border:6px solid black;
+display:none;
+margin:auto;
+background:#87ceeb;
+}
+
+#levels,#settings,#shop,#raceMenu{
+display:none;
+}
+
+.shopColor{
+width:90px;
+height:90px;
+display:inline-block;
+margin:10px;
+border:4px solid black;
+cursor:pointer;
+}
+
+#overlay{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.6);
+display:none;
+align-items:center;
+justify-content:center;
+flex-direction:column;
+color:white;
+}
+
+#overlay h1{
+font-size:70px;
+}
+
+#menuBtn{
+position:absolute;
+right:20px;
+top:60px;
+display:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="coins">Coins: 0</div>
+<button id="shopBtn" onclick="openShop()">SHOP</button>
+<button id="menuBtn" onclick="backMenu()">MENU</button>
+
+<div id="menu">
+
+<div id="title">PARKOUR</div>
+
+<button onclick="openLevels()">1 HRÁČ</button><br>
+<button onclick="openRace()">2 HRÁČI</button><br>
+<button onclick="openSettings()">NASTAVENÍ</button>
+
+</div>
+
+<div id="levels">
+
+<h1>LEVELY</h1>
+
+<button onclick="startLevel(1)">LEVEL 1</button><br>
+<button id="l2">🔒 LEVEL 2</button><br>
+<button id="l3">🔒 LEVEL 3</button><br>
+<button id="l4">🔒 LEVEL 4</button><br>
+
+<button onclick="backMenu()">ZPĚT</button>
+
+</div>
+
+<div id="settings">
+
+<h1>NASTAVENÍ</h1>
+
+Hudba<br>
+<input id="volume" type="range" min="0" max="1" step="0.01" value="0.5">
+
+<br><br>
+<button onclick="backMenu()">ZPĚT</button>
+
+</div>
+
+<div id="shop">
+
+<h1>SHOP</h1>
+
+<div id="skins"></div>
+
+<br>
+<button onclick="backMenu()">ZPĚT</button>
+
+</div>
+
+<div id="raceMenu">
+
+<h1>ZÁVOD</h1>
+<button onclick="startRace()">START</button><br>
+<button onclick="backMenu()">ZPĚT</button>
+
+</div>
+
+<canvas id="game" width="1200" height="500"></canvas>
+
+<div id="overlay">
+
+<h1>LEVEL COMPLETE</h1>
+
+<button onclick="nextLevel()">DALŠÍ LEVEL</button>
+<button onclick="backMenu()">MENU</button>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("game")
+const c = canvas.getContext("2d")
+
+let coins = 0
+let unlocked = 1
+let currentLevel = 1
+let running = false
+
+const player = {
+x:0,
+y:0,
+w:32,
+h:32,
+vy:0,
+speed:4,
+jump:-12,
+color:"#000",
+ground:false
+}
+
+let platforms=[]
+let hazards=[]
+let finish=1000
+
+const keys={}
+
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true)
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false)
+
+function updateCoins(){
+coins = Math.max(0,coins)
+document.getElementById("coins").innerText="Coins: "+coins
+}
+
+function backMenu(){
+
+menu.style.display="block"
+levels.style.display="none"
+settings.style.display="none"
+shop.style.display="none"
+raceMenu.style.display="none"
+
+canvas.style.display="none"
+menuBtn.style.display="none"
+
+overlay.style.display="none"
+
+running=false
+
+}
+
+function openLevels(){
+menu.style.display="none"
+levels.style.display="block"
+}
+
+function openRace(){
+menu.style.display="none"
+raceMenu.style.display="block"
+}
+
+function openSettings(){
+menu.style.display="none"
+settings.style.display="block"
+}
+
+function openShop(){
+menu.style.display="none"
+shop.style.display="block"
+}
+
+const colors=["red","blue","green","purple","orange"]
+
+colors.forEach(color=>{
+let d=document.createElement("div")
+d.className="shopColor"
+d.style.background=color
+
+d.onclick=()=>{
+
+if(coins>=100){
+
+coins-=100
+player.color=color
+updateCoins()
+
+}
+
+}
+
+skins.appendChild(d)
+})
+
+function startLevel(l){
+
+if(l>unlocked)return
+
+currentLevel=l
+
+levels.style.display="none"
+canvas.style.display="block"
+menuBtn.style.display="block"
+
+setupLevel(l)
+
+spawn()
+
+running=true
+
+}
+
+function spawn(){
+
+player.x = platforms[0].x+20
+player.y = platforms[0].y-player.h
+player.vy=0
+
+}
+
+function setupLevel(l){
+
+platforms=[]
+hazards=[]
+
+if(l==1){
+
+canvas.style.background="#7ed6ff"
+
+platforms=[
+{x:80,y:360,w:200,h:20},
+{x:340,y:320,w:150,h:20},
+{x:560,y:280,w:150,h:20},
+{x:780,y:240,w:150,h:20},
+{x:1000,y:200,w:150,h:20}
+]
+
+hazards=[{x:0,y:420,w:2000,h:200,color:"green"}]
+
+finish=1100
+
+}
+
+if(l==2){
+
+canvas.style.background="#ff7b00"
+
+platforms=[
+{x:100,y:360,w:200,h:20},
+{x:380,y:300,w:160,h:20},
+{x:660,y:240,w:160,h:20},
+{x:940,y:180,w:160,h:20}
+]
+
+hazards=[{x:0,y:420,w:2000,h:200,color:"orange"}]
+
+finish=1100
+
+}
+
+if(l==3){
+
+canvas.style.background="#ddd"
+
+platforms=[
+{x:100,y:360,w:80,h:20},
+{x:260,y:340,w:160,h:20},
+{x:500,y:300,w:80,h:20},
+{x:740,y:260,w:200,h:20},
+{x:1020,y:230,w:200,h:20}
+]
+
+finish=1200
+
+}
+
+if(l==4){
+
+canvas.style.background="#87ceeb"
+
+platforms=[
+{x:100,y:360,w:100,h:20},
+{x:360,y:300,w:100,h:20},
+{x:620,y:240,w:100,h:20},
+{x:880,y:180,w:100,h:20},
+{x:1140,y:120,w:100,h:20}
+]
+
+finish=1200
+
+}
+
+}
+
+function physics(){
+
+player.vy+=0.6
+player.y+=player.vy
+
+player.ground=false
+
+platforms.forEach(p=>{
+
+if(player.x < p.x+p.w &&
+player.x+player.w > p.x &&
+player.y+player.h > p.y &&
+player.y+player.h < p.y+20){
+
+player.y = p.y-player.h
+player.vy=0
+player.ground=true
+
+}
+
+})
+
+hazards.forEach(h=>{
+
+if(player.x < h.x+h.w &&
+player.x+player.w > h.x &&
+player.y < h.y+h.h &&
+player.y+player.h > h.y){
+
+spawn()
+
+}
+
+})
+
+}
+
+function drawWorld(){
+
+c.fillStyle="yellow"
+c.beginPath()
+c.arc(1000,80,40,0,Math.PI*2)
+c.fill()
+
+platforms.forEach(p=>{
+c.fillStyle="#8b5a2b"
+c.fillRect(p.x,p.y,p.w,p.h)
+})
+
+hazards.forEach(h=>{
+c.fillStyle=h.color
+c.fillRect(h.x,h.y,h.w,h.h)
+})
+
+c.fillStyle="gold"
+c.fillRect(finish,150,20,200)
+
+}
+
+function loop(){
+
+requestAnimationFrame(loop)
+
+if(!running)return
+
+c.clearRect(0,0,canvas.width,canvas.height)
+
+drawWorld()
+
+if(keys["a"])player.x-=player.speed
+if(keys["d"])player.x+=player.speed
+if(keys[" "] && player.ground)player.vy=player.jump
+
+physics()
+
+c.fillStyle=player.color
+c.fillRect(player.x,player.y,player.w,player.h)
+
+if(player.x>finish){
+
+running=false
+
+coins+=10
+updateCoins()
+
+if(unlocked<currentLevel+1)unlocked=currentLevel+1
+
+overlay.style.display="flex"
+
+}
+
+}
+
+updateCoins()
+
+loop()
+
+</script>
+
+</body>
+</html>
