@@ -1,0 +1,28 @@
+<h1>Moje hra</h1>
+
+<canvas id="hra" width="400" height="300"></canvas>
+
+<button>Spustit hru</button>
+
+<script>
+let canvas = document.getElementById("hra");
+let ctx = canvas.getContext("2d");
+
+function startGame() {
+
+  let x = 50;
+
+  function gameLoop() {
+    ctx.clearRect(0,0,400,300);
+
+    ctx.fillStyle = "blue";
+    ctx.fillRect(x,100,50,50);
+
+    x += 2;
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+}
+</script>
